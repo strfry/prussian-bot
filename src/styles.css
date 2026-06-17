@@ -1,0 +1,76 @@
+/* Prussian Bot — base palette & shared utilities */
+:root {
+  --paper: #fbf3e0;
+  --paper-2: #f5ebd0;
+  --ink: #2a1d0a;
+  --ink-2: #7a6440;
+  --ink-faint: #b8a68a;
+  --amber-deep: #b8701e;
+  --amber: #d4943a;
+  --amber-soft: #f0dbb0;
+  --inner: #3b7a75;
+  --inner-bg: #f0f5ed;
+
+  --serif: 'Cardo', 'Georgia', 'Times New Roman', serif;
+  --mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+}
+
+body {
+  margin: 0;
+  font-family: var(--serif);
+  color: var(--ink);
+  background: var(--paper);
+}
+
+.weave {
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--ink-faint) 0 1px,
+    transparent 1px 5px
+  );
+}
+
+.prs {
+  color: var(--amber-deep);
+  font-weight: 700;
+}
+
+.lang-pill {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 1px 7px;
+  border: 1px solid var(--ink-faint);
+  border-radius: 1px;
+  background: rgba(255,255,255,0.4);
+  color: var(--ink-2);
+}
+
+.caret::after {
+  content: '▍';
+  animation: blink 1s step-end infinite;
+  color: var(--amber-deep);
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.dots::after {
+  content: '';
+  animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}

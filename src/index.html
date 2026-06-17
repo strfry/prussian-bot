@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prūsiskas Bots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="prussian-app.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="env,react" src="prussian-engine.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="prussian-chat.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="prussian-settings.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect, useRef, useCallback } = React;
+
+const LS_CFG = 'prussianbot.cfg.v1';
+const LS_TURNS = 'prussianbot.turns.v1';
+const MAX_STEPS = 6;
+
+const DEFAULT_CFG = {
+  baseUrl: 'https://opencode.ai/zen/v1',
+  apiKey: '',
+  model: 'deepseek-v4-flash',
+  mcpUrl: 'https://strfry.org/prussian-mcp/mcp',
+  systemPrompt:
+    'Du bist ein Chatbot, der die rekonstruierte altpreußische Sprache (Prūsiskan) beherrscht. '
+    + 'Nutze die MCP-Werkzeuge, um prußische Eingaben zu entziffern und das Wörterbuch zu durchsuchen, '
+    + 'und antworte selbst auf Prußisch. Markiere rekonstruierte oder unbelegte Formen mit einem '
+    + 'vorangestellten Sternchen (*) und zitiere Belege im Lexikon-Stil (z. B. E 4 = Elbinger Vokabular). '
+    + 'Fasse dich knapp und lexikografisch.',
+  thinking: true,
+  reasoningEffort: 'medium',
+  temperature: 0.4,
+  topP: 1,
+  maxTokens: 1024,
+};
+
+function loadCfg() {
+  try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(LS_CFG) || '{}') }; }
+  catch { return { ...DEFAULT_CFG }; }
+}
+function loadTurns() {
+  try { return JSON.parse(localStorage.getItem(LS_TURNS) || '[]'); } catch { return []; }
+}
+function toErr(e) {
+  if (e instanceof ApiError) return { source: e.source, status: e.status, isRateLimit: e.isRateLimit, message: e.message };
+  return { source: 'llm', status: 0, isRateLimit: false, message: e.message || String(e) };
+}
+
+function App() {
+  const [cfg, setCfg] = useState(loadCfg);
+  const [turns, setTurns] = useState(loadTurns);
+  const [busy, setBusy] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [mcp, setMcp] = useState({ status: 'idle', tools: [], error: null });
+
+  const turnsRef = useRef(turns);
+  const mcpRef = useRef({ client: null, tools: [], status: 'idle' });
+  const abortRef = useRef(null);
+  const commitPending = useRef(false);
+  const scrollRef = useRef(null);
+
+  useStickyScroll(scrollRef, turns);
+
+  // persist config
+  useEffect(() => { try { localStorage.setItem(LS_CFG, JSON.stringify(cfg)); } catch (_) {} }, [cfg]);
+  // persist conversation
+  useEffect(() => { try { localStorage.setItem(LS_TURNS, JSON.stringify(turns)); } catch (_) {} }, [turns]);
+
+  const configured = !!(cfg.baseUrl && cfg.model);
+
+  /* ---- turn buffer helpers (ref-backed, rAF-committed) ---- */
+  function commit() {
+    if (commitPending.current) return;
+    commitPending.current = true;
+    requestAnimationFrame(() => { commitPending.current = false; setTurns(turnsRef.current.slice()); });
+  }
+  function pushTurn(t) { turnsRef.current = turnsRef.current.concat([t]); commit(); }
+  function getLast() { return turnsRef.current[turnsRef.current.length - 1]; }
+  function replaceLast(t) {
+    const arr = turnsRef.current.slice();
+    arr[arr.length - 1] = t;
+    turnsRef.current = arr;
+    commit();
+  }
+
+  /* ---- MCP connect ---- */
+  const connectMcp = useCallback(async (url) => {
+    const u = (url || '').trim();
+    if (!u) { mcpRef.current = { client: null, tools: [], status: 'idle' }; setMcp({ status: 'idle', tools: [], error: null }); return; }
+    setMcp({ status: 'connecting', tools: mcpRef.current.tools, error: null });
+    try {
+      const client = new MCPClient(u);
+      await client.initialize();
+      const tools = await client.listTools();
+      mcpRef.current = { client, tools, status: 'ok' };
+      setMcp({ status: 'ok', tools, error: null });
+    } catch (e) {
+      mcpRef.current = { client: null, tools: [], status: 'error' };
+      setMcp({ status: 'error', tools: [], error: e.message || 'Verbindung fehlgeschlagen' });
+    }
+  }, []);
+
+  // auto-connect on load if URL present
+  useEffect(() => { if (cfg.mcpUrl) connectMcp(cfg.mcpUrl); /* eslint-disable-next-line */ }, []);
+
+  /* ---- build OpenAI messages from rendered turns ---- */
+  function buildApiMessages(list) {
+    const msgs = [{ role: 'system', content: cfg.systemPrompt }];
+    for (const t of list) {
+      if (t.role === 'user') { msgs.push({ role: 'user', content: t.content }); continue; }
+      if (t.role !== 'assistant') continue;
+      const hasTools = t.toolCalls && t.toolCalls.length;
+      const m = { role: 'assistant', content: t.content || (hasTools ? null : '') };
+      if (hasTools) m.tool_calls = t.toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args || '{}' } }));
+      if (!m.content && !hasTools) continue;               // skip empty/errored turns
+      msgs.push(m);
+      if (hasTools) {
+        for (const tc of t.toolCalls) {
+          msgs.push({ role: 'tool', tool_call_id: tc.id, content: (tc.result != null ? tc.result : (tc.error || '(kein Ergebnis)')) });
+        }
+      }
+    }
+    return msgs;
+  }
+
+  /* ---- execute MCP tool calls of the current assistant turn ---- */
+  async function executeTools(toolCalls, ctrl) {
+    const client = mcpRef.current.client;
+    for (const tc of toolCalls) {
+      if (ctrl.signal.aborted) return;
+      const t0 = performance.now();
+      let args = {}; try { args = tc.args ? JSON.parse(tc.args) : {}; } catch (_) { args = {}; }
+      let resultText = '', isError = false;
+      if (!client) { resultText = 'Kein MCP-Server verbunden — Werkzeug nicht verfügbar.'; isError = true; }
+      else {
+        try {
+          const r = await client.callTool(tc.name, args);
+          const rr = readToolResult(r);
+          resultText = rr.text || '(leeres Ergebnis)';
+          isError = rr.isError;
+        } catch (e) {
+          resultText = e.message || 'MCP-Fehler';
+          isError = true;
+        }
+      }
+      const ms = Math.round(performance.now() - t0);
+      const last = getLast();
+      const updated = (last.toolCalls || []).map((x) =>
+        x.id === tc.id ? { ...x, status: isError ? 'err' : 'ok', result: resultText, error: isError ? resultText : null, ms } : x
+      );
+      replaceLast({ ...last, toolCalls: updated });
+    }
+  }
+
+  /* ---- the agentic loop ---- */
+  async function runLoop() {
+    setBusy(true);
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    try {
+      for (let step = 0; step < MAX_STEPS; step++) {
+        const apiMessages = buildApiMessages(turnsRef.current);
+        pushTurn({ role: 'assistant', id: 'a' + Date.now() + '_' + step, reasoning: '', content: '', toolCalls: [], error: null });
+
+        const toolsSchema = mcpRef.current.status === 'ok' ? mcpToOpenAITools(mcpRef.current.tools) : [];
+        let res;
+        try {
+          res = await streamChat({ ...cfg, tools: toolsSchema }, apiMessages, ctrl.signal, {
+            onReasoning: (r) => replaceLast({ ...getLast(), reasoning: r }),
+            onContent: (c) => replaceLast({ ...getLast(), content: c }),
+            onToolCalls: (tcs) => replaceLast({ ...getLast(), toolCalls: tcs.map((t) => ({ id: t.id, name: t.name, args: t.args, status: 'run' })) }),
+          });
+        } catch (e) {
+          if (e.name === 'AbortError') { const l = getLast(); replaceLast({ ...l, content: l.content || '', stopped: true }); break; }
+          replaceLast({ ...getLast(), error: toErr(e) });
+          break;
+        }
+
+        const hasTools = res.toolCalls && res.toolCalls.length;
+        replaceLast({
+          ...getLast(),
+          reasoning: res.reasoning || getLast().reasoning,
+          content: res.content || '',
+          toolCalls: hasTools ? res.toolCalls.map((t) => ({ id: t.id, name: t.name, args: t.args, status: 'run' })) : [],
+        });
+
+        const isToolRound = res.finishReason === 'tool_calls' || (hasTools && !res.content);
+        if (isToolRound && hasTools) {
+          await executeTools(getLast().toolCalls, ctrl);
+          if (ctrl.signal.aborted) break;
+          continue;                 // feed results back to the model
+        }
+        break;                       // final answer reached
+      }
+    } finally {
+      abortRef.current = null;
+      setBusy(false);
+      setTurns(turnsRef.current.slice());
+    }
+  }
+
+  /* ---- actions ---- */
+  function send(text) {
+    if (busy) return;
+    if (!configured) { setShowSettings(true); return; }
+    turnsRef.current = turnsRef.current.concat([{ role: 'user', content: text }]);
+    setTurns(turnsRef.current.slice());
+    runLoop();
+  }
+  function stop() { if (abortRef.current) abortRef.current.abort(); }
+  function retry() {
+    // drop everything after the last user message, then re-run
+    const arr = turnsRef.current;
+    let lastUser = -1;
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i].role === 'user') { lastUser = i; break; }
+    if (lastUser < 0) return;
+    turnsRef.current = arr.slice(0, lastUser + 1);
+    setTurns(turnsRef.current.slice());
+    runLoop();
+  }
+  function newChat() {
+    if (busy) stop();
+    turnsRef.current = [];
+    setTurns([]);
+  }
+
+  /* ---- connection chip ---- */
+  let connCls = 'warn', connTxt = 'Endpoint einrichten';
+  if (configured) {
+    if (busy) { connCls = 'busy'; connTxt = 'arbeitet …'; }
+    else if (mcp.status === 'ok') { connCls = 'ok'; connTxt = mcp.tools.length + ' Werkzeuge'; }
+    else if (mcp.status === 'error') { connCls = 'err'; connTxt = 'MCP-Fehler'; }
+    else if (mcp.status === 'connecting') { connCls = 'busy'; connTxt = 'verbinde …'; }
+    else { connCls = 'warn'; connTxt = 'MCP nicht verbunden'; }
+  }
+
+  const lastIdx = turns.length - 1;
+
+  return (
+    <div className="app">
+      <div className="topbar">
+        <div className="brand">
+          <div className="title"><span className="prs">Prūsiskas</span> Bots</div>
+          <div className="sub">rekonstruiertes Altpreußisch · MCP-Wörterbuch</div>
+        </div>
+        <div className="spacer" />
+        <div className={'conn ' + connCls} onClick={() => setShowSettings(true)} title="Einstellungen öffnen">
+          <span className="led" /><span className="label-txt">{connTxt}</span>
+        </div>
+        <button className="iconbtn" onClick={newChat} title="Neue Sitzung"><span className="glyph">✎</span><span className="label-txt">Neu</span></button>
+        <button className="iconbtn" onClick={() => setShowSettings(true)} title="Einstellungen"><span className="glyph">⚙</span><span className="label-txt">Einstellungen</span></button>
+      </div>
+
+      <div className="scroll" ref={scrollRef}>
+        {turns.length === 0 ? (
+          <Welcome onPick={send} configured={configured} />
+        ) : (
+          <div className="thread">
+            {turns.map((t, i) => (
+              <Message key={t.id || ('u' + i)} turn={t} isLast={i === lastIdx} streaming={busy && i === lastIdx} onRetry={retry} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <Composer onSend={send} busy={busy} onStop={stop} disabled={!configured} />
+
+      {showSettings && (
+        <SettingsDrawer
+          cfg={cfg} setCfg={setCfg} onClose={() => setShowSettings(false)}
+          mcp={{ status: mcp.status, tools: mcp.tools, error: mcp.error, connect: connectMcp }}
+        />
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
