@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" id="html-el">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,6 +16,8 @@
 <body>
 <div id="root"></div>
 
+<script src="i18n.js"></script>
+<script src="prompts.js"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-engine.jsx"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-chat.jsx"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-settings.jsx"></script>
@@ -28,16 +30,10 @@ const LS_TURNS = 'prussianbot.turns.v1';
 const MAX_STEPS = 6;
 
 const DEFAULT_CFG = {
-  baseUrl: 'https://opencode.ai/zen/v1',
-  apiKey: '',
-  model: 'deepseek-v4-flash',
+  model: 'deepseek-v4-flash-free',
   mcpUrl: 'https://strfry.org/prussian-mcp/mcp',
-  systemPrompt:
-    'Du bist ein Chatbot, der die rekonstruierte altpreußische Sprache (Prūsiskan) beherrscht. '
-    + 'Nutze die MCP-Werkzeuge, um prußische Eingaben zu entziffern und das Wörterbuch zu durchsuchen, '
-    + 'und antworte selbst auf Prußisch. Markiere rekonstruierte oder unbelegte Formen mit einem '
-    + 'vorangestellten Sternchen (*) und zitiere Belege im Lexikon-Stil (z. B. E 4 = Elbinger Vokabular). '
-    + 'Fasse dich knapp und lexikografisch.',
+  selectedGrammars: [],
+  uiLang: 'de',
   thinking: true,
   reasoningEffort: 'medium',
   temperature: 0.4,
@@ -46,8 +42,10 @@ const DEFAULT_CFG = {
 };
 
 function loadCfg() {
-  try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(LS_CFG) || '{}') }; }
-  catch { return { ...DEFAULT_CFG }; }
+  try {
+    var saved = JSON.parse(localStorage.getItem(LS_CFG) || '{}');
+    return { ...DEFAULT_CFG, ...saved };
+  } catch { return { ...DEFAULT_CFG }; }
 }
 function loadTurns() {
   try { return JSON.parse(localStorage.getItem(LS_TURNS) || '[]'); } catch { return []; }
@@ -62,10 +60,10 @@ function App() {
   const [turns, setTurns] = useState(loadTurns);
   const [busy, setBusy] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [mcp, setMcp] = useState({ status: 'idle', tools: [], error: null });
+  const [mcp, setMcp] = useState({ status: 'idle', tools: [], error: null, resources: [] });
 
   const turnsRef = useRef(turns);
-  const mcpRef = useRef({ client: null, tools: [], status: 'idle' });
+  const mcpRef = useRef({ client: null, tools: [], resources: [], grammarTexts: {}, status: 'idle' });
   const abortRef = useRef(null);
   const commitPending = useRef(false);
   const scrollRef = useRef(null);
@@ -77,7 +75,7 @@ function App() {
   // persist conversation
   useEffect(() => { try { localStorage.setItem(LS_TURNS, JSON.stringify(turns)); } catch (_) {} }, [turns]);
 
-  const configured = !!(cfg.baseUrl && cfg.model);
+  const configured = !!cfg.model;
 
   /* ---- turn buffer helpers (ref-backed, rAF-committed) ---- */
   function commit() {
@@ -97,17 +95,24 @@ function App() {
   /* ---- MCP connect ---- */
   const connectMcp = useCallback(async (url) => {
     const u = (url || '').trim();
-    if (!u) { mcpRef.current = { client: null, tools: [], status: 'idle' }; setMcp({ status: 'idle', tools: [], error: null }); return; }
+    if (!u) { mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'idle' }; setMcp({ status: 'idle', tools: [], error: null, resources: [] }); return; }
     setMcp({ status: 'connecting', tools: mcpRef.current.tools, error: null });
     try {
       const client = new MCPClient(u);
       await client.initialize();
       const tools = await client.listTools();
-      mcpRef.current = { client, tools, status: 'ok' };
-      setMcp({ status: 'ok', tools, error: null });
+      let resources = [], grammarTexts = {};
+      try {
+        resources = await client.listResources();
+        for (const r of resources) {
+          try { grammarTexts[r.uri] = await client.readResource(r.uri); } catch (_) {}
+        }
+      } catch (_) { /* resources not available */ }
+      mcpRef.current = { client, tools, resources, grammarTexts, status: 'ok' };
+      setMcp({ status: 'ok', tools, error: null, resources });
     } catch (e) {
-      mcpRef.current = { client: null, tools: [], status: 'error' };
-      setMcp({ status: 'error', tools: [], error: e.message || 'Verbindung fehlgeschlagen' });
+      mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'error' };
+      setMcp({ status: 'error', tools: [], error: e.message || 'Verbindung fehlgeschlagen', resources: [] });
     }
   }, []);
 
@@ -116,7 +121,15 @@ function App() {
 
   /* ---- build OpenAI messages from rendered turns ---- */
   function buildApiMessages(list) {
-    const msgs = [{ role: 'system', content: cfg.systemPrompt }];
+    var lang = cfg.uiLang || 'de';
+    var defaultSys = (PROMPTS[lang] || PROMPTS['de']).system;
+    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : defaultSys;
+    const sel = cfg.selectedGrammars || [];
+    if (sel.length > 0) {
+      const extras = sel.map((uri) => mcpRef.current.grammarTexts[uri]).filter(Boolean);
+      if (extras.length > 0) sys = sys + '\n\n' + extras.join('\n\n');
+    }
+    const msgs = [{ role: 'system', content: sys }];
     for (const t of list) {
       if (t.role === 'user') { msgs.push({ role: 'user', content: t.content }); continue; }
       if (t.role !== 'assistant') continue;
@@ -127,7 +140,7 @@ function App() {
       msgs.push(m);
       if (hasTools) {
         for (const tc of t.toolCalls) {
-          msgs.push({ role: 'tool', tool_call_id: tc.id, content: (tc.result != null ? tc.result : (tc.error || '(kein Ergebnis)')) });
+          msgs.push({ role: 'tool', tool_call_id: tc.id, content: (tc.result != null ? tc.result : (tc.error || t('tool.noResult'))) });
         }
       }
     }
@@ -142,15 +155,15 @@ function App() {
       const t0 = performance.now();
       let args = {}; try { args = tc.args ? JSON.parse(tc.args) : {}; } catch (_) { args = {}; }
       let resultText = '', isError = false;
-      if (!client) { resultText = 'Kein MCP-Server verbunden — Werkzeug nicht verfügbar.'; isError = true; }
+      if (!client) { resultText = t('error.mcpUnreachable'); isError = true; }
       else {
         try {
           const r = await client.callTool(tc.name, args);
           const rr = readToolResult(r);
-          resultText = rr.text || '(leeres Ergebnis)';
+          resultText = rr.text || t('tool.noResult');
           isError = rr.isError;
         } catch (e) {
-          resultText = e.message || 'MCP-Fehler';
+          resultText = e.message || t('error.mcp');
           isError = true;
         }
       }
@@ -235,15 +248,26 @@ function App() {
     setTurns([]);
   }
 
-  /* ---- connection chip ---- */
-  let connCls = 'warn', connTxt = 'Endpoint einrichten';
-  if (configured) {
-    if (busy) { connCls = 'busy'; connTxt = 'arbeitet …'; }
-    else if (mcp.status === 'ok') { connCls = 'ok'; connTxt = mcp.tools.length + ' Werkzeuge'; }
-    else if (mcp.status === 'error') { connCls = 'err'; connTxt = 'MCP-Fehler'; }
-    else if (mcp.status === 'connecting') { connCls = 'busy'; connTxt = 'verbinde …'; }
-    else { connCls = 'warn'; connTxt = 'MCP nicht verbunden'; }
+  /* ---- i18n helpers ---- */
+  function pl(n, deOne, deMany, enOne, enMany) {
+    var d = window.__lang === 'de';
+    return d ? (n === 1 ? deOne : deMany) : (n === 1 ? enOne : enMany);
   }
+  function setLang(l) { setCfg(function(c) { return { ...c, uiLang: l }; }); }
+
+  /* ---- connection chip ---- */
+  let connCls = 'warn', connTxt = t('conn.notConfigured');
+  if (configured) {
+    if (busy) { connCls = 'busy'; connTxt = t('conn.working'); }
+    else if (mcp.status === 'ok') { connCls = 'ok'; connTxt = pl(mcp.tools.length, '1 Werkzeug', mcp.tools.length+' Werkzeuge', '1 tool', mcp.tools.length+' tools'); }
+    else if (mcp.status === 'error') { connCls = 'err'; connTxt = t('conn.mcpError'); }
+    else if (mcp.status === 'connecting') { connCls = 'busy'; connTxt = t('conn.connecting'); }
+    else { connCls = 'warn'; connTxt = t('conn.notConnected'); }
+  }
+
+  /* ---- sync lang attribute ---- */
+  useEffect(function() { document.documentElement.lang = cfg.uiLang || 'de'; }, [cfg.uiLang]);
+  window.__lang = cfg.uiLang || 'de';
 
   const lastIdx = turns.length - 1;
 
@@ -251,15 +275,19 @@ function App() {
     <div className="app">
       <div className="topbar">
         <div className="brand">
-          <div className="title"><span className="prs">Prūsiskas</span> Bots</div>
-          <div className="sub">rekonstruiertes Altpreußisch · MCP-Wörterbuch</div>
+          <div className="title"><span className="prs">{t('welcome.title')}</span></div>
+          <div className="sub">{t('topbar.subtitle')}</div>
+        </div>
+        <div className="lang-toggle">
+          <button className={window.__lang !== 'en' ? 'on' : ''} onClick={function() { setLang('de'); }} title="Deutsch">DE</button>
+          <button className={window.__lang === 'en' ? 'on' : ''} onClick={function() { setLang('en'); }} title="English">EN</button>
         </div>
         <div className="spacer" />
-        <div className={'conn ' + connCls} onClick={() => setShowSettings(true)} title="Einstellungen öffnen">
+        <div className={'conn ' + connCls} onClick={() => setShowSettings(true)} title={t('topbar.settingsTitle')}>
           <span className="led" /><span className="label-txt">{connTxt}</span>
         </div>
-        <button className="iconbtn" onClick={newChat} title="Neue Sitzung"><span className="glyph">✎</span><span className="label-txt">Neu</span></button>
-        <button className="iconbtn" onClick={() => setShowSettings(true)} title="Einstellungen"><span className="glyph">⚙</span><span className="label-txt">Einstellungen</span></button>
+        <button className="iconbtn" onClick={newChat} title={t('topbar.new')}><span className="glyph">✎</span><span className="label-txt">{t('topbar.new')}</span></button>
+        <button className="iconbtn" onClick={() => setShowSettings(true)} title={t('topbar.settings')}><span className="glyph">⚙</span><span className="label-txt">{t('topbar.settings')}</span></button>
       </div>
 
       <div className="scroll" ref={scrollRef}>
@@ -280,6 +308,7 @@ function App() {
         <SettingsDrawer
           cfg={cfg} setCfg={setCfg} onClose={() => setShowSettings(false)}
           mcp={{ status: mcp.status, tools: mcp.tools, error: mcp.error, connect: connectMcp }}
+          resources={mcp.status === 'ok' ? (mcp.resources || []) : []}
         />
       )}
     </div>

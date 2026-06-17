@@ -49,7 +49,7 @@ function Reasoning({ text, streaming }) {
     <div className="reason">
       <div className={'reason-head' + (open ? '' : ' closed')} onClick={() => setOpen(!open)}>
         <span className="tw">▼</span>
-        <span>Gedankengang{streaming ? ' …' : ''}</span>
+        <span>{t('reasoning.head')}{streaming ? ' …' : ''}</span>
       </div>
       {open && <div className="reason-body">{text}{streaming && <span className="caret" />}</div>}
     </div>
@@ -77,16 +77,16 @@ function ToolCard({ call }) {
       {open && (
         <div className="tool-body">
           <div className="kv">
-            <span className="k">Argument</span>
+            <span className="k">{t('tool.args')}</span>
             <pre>{pretty(call.args)}</pre>
           </div>
           {status !== 'run' && (
             <div className={'kv' + (status === 'err' ? ' err' : '')}>
-              <span className="k">{status === 'err' ? 'Fehler' : 'Ergebnis'}</span>
-              <pre>{call.result != null ? call.result : (status === 'err' ? (call.error || 'Fehler') : '…')}</pre>
+              <span className="k">{status === 'err' ? t('tool.error') : t('tool.result')}</span>
+              <pre>{call.result != null ? call.result : (status === 'err' ? (call.error || t('tool.error')) : '…')}</pre>
             </div>
           )}
-          {status === 'run' && <div className="kv"><span className="k">läuft</span><pre>Werkzeug wird ausgeführt …</pre></div>}
+          {status === 'run' && <div className="kv"><span className="k">{t('tool.runningLabel')}</span><pre>{t('tool.running')}</pre></div>}
         </div>
       )}
     </div>
@@ -102,12 +102,12 @@ function ErrorCard({ error, onRetry }) {
   return (
     <div className="errcard">
       <div className="hd">
-        <span className="et">{error.isRateLimit ? 'Rate-Limit' : (error.source === 'mcp' ? 'MCP-Fehler' : 'Fehler')}</span>
+        <span className="et">{error.isRateLimit ? t('error.rateLimit') : (error.source === 'mcp' ? t('error.mcp') : t('error.generic'))}</span>
         <span className="msg-txt">{error.message}</span>
       </div>
       {onRetry && (
         <div className="actions">
-          <button className="iconbtn" onClick={onRetry}><span className="glyph">↻</span>Erneut versuchen</button>
+          <button className="iconbtn" onClick={onRetry}><span className="glyph">↻</span>{t('error.retry')}</button>
         </div>
       )}
     </div>
@@ -119,7 +119,7 @@ function Message({ turn, isLast, streaming, onRetry }) {
   if (turn.role === 'user') {
     return (
       <div className="msg user">
-        <div className="who">du</div>
+        <div className="who">{t('user.label')}</div>
         <div className="bubble-user">{turn.content}</div>
       </div>
     );
@@ -146,7 +146,7 @@ function Message({ turn, isLast, streaming, onRetry }) {
         {turn.error ? <ErrorCard error={turn.error} onRetry={isLast ? onRetry : null} /> : null}
         {streaming && isLast && !turn.content && !turn.reasoning && calls.length === 0 && !turn.error && (
           <div className="bubble-bot answer" style={{ color: 'var(--ink-faint)', fontStyle: 'italic' }}>
-            denkt nach<span className="dots" />
+            {t('thinking')}<span className="dots" />
           </div>
         )}
       </div>
@@ -156,24 +156,30 @@ function Message({ turn, isLast, streaming, onRetry }) {
 
 /* ---- welcome / empty state ---- */
 function Welcome({ onPick, configured }) {
-  const qs = [
-    ['Wie sagt man „Stern" auf Prußisch?', 'lāuksnā'],
-    ['Übersetze: lāiku — was bedeutet das?', null],
-    ['Bilde einen Gruß auf Altpreußisch.', null],
+  var welcomeQs = [
+    { q: t('welcome.q1'), a: 'lāuksnā' },
+    { q: t('welcome.q2'), a: null },
+    { q: t('welcome.q3'), a: null },
   ];
   return (
     <div className="welcome">
-      <h1><span className="prs">Prūsiskas</span> Bots</h1>
-      <p>Ein Chatbot, der die rekonstruierte altpreußische Sprache beherrscht — er entziffert prußische Eingaben und durchsucht das Wörterbuch über den MCP-Server, um selbst auf Prußisch zu antworten.</p>
+      <h1><span className="prs">{t('welcome.title')}</span></h1>
+      <p>{t('welcome.description')}</p>
       <div className="weave" />
-      {!configured && <p style={{ color: 'var(--amber-deep)', fontStyle: 'italic' }}>Zunächst Endpoint &amp; MCP-Server unter <b>Einstellungen</b> (oben rechts) verbinden.</p>}
+      {!configured && <p style={{ color: 'var(--amber-deep)', fontStyle: 'italic' }}>
+        {window.__lang === 'de'
+          ? <>Zunächst Endpoint &amp; MCP-Server unter <b>{t('topbar.settings')}</b> (oben rechts) verbinden.</>
+          : <>First connect an endpoint &amp; MCP server in <b>{t('topbar.settings')}</b> (top right).</>}
+      </p>}
       <div className="suggests">
-        {qs.map(([q, a], i) => (
-          <button className="suggest" key={i} onClick={() => onPick(q)}>
-            <span className="q">{q}</span>
-            {a && <> → <span className="prs">{a}</span></>}
-          </button>
-        ))}
+        {welcomeQs.map(function(item, i) {
+          return (
+            <button className="suggest" key={i} onClick={function() { onPick(item.q); }}>
+              <span className="q">{item.q}</span>
+              {item.a && <> → <span className="prs">{item.a}</span></>}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -201,17 +207,17 @@ function Composer({ onSend, busy, onStop, disabled }) {
         <div className="row">
           <textarea
             ref={ref} value={text} rows={1}
-            placeholder={disabled ? 'Erst Endpoint verbinden (Einstellungen) …' : 'Frag etwas — auf Deutsch, Englisch oder Prūsiskan …'}
+            placeholder={disabled ? t('composer.placeholder.disabled') : t('composer.placeholder')}
             onChange={(e) => setText(e.target.value)} onKeyDown={key} disabled={disabled}
           />
           {busy ? (
-            <button className="sendbtn stop" onClick={onStop}><span>■</span>Stopp</button>
+            <button className="sendbtn stop" onClick={onStop}><span>■</span>{t('composer.stop')}</button>
           ) : (
-            <button className="sendbtn" onClick={submit} disabled={disabled || !text.trim()}>Senden<span>↩</span></button>
+            <button className="sendbtn" onClick={submit} disabled={disabled || !text.trim()}>{t('composer.send')}<span>↩</span></button>
           )}
         </div>
         <div className="hint">
-          <span><b>Enter</b> senden · <b>Shift+Enter</b> Zeilenumbruch</span>
+          <span dangerouslySetInnerHTML={{__html: t('composer.hint')}} />
         </div>
       </div>
     </div>

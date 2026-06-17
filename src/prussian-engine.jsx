@@ -31,7 +31,7 @@ async function safeText(res) {
 /* A typed error so the UI can recognise rate limits etc. */
 class ApiError extends Error {
   constructor(source, status, message) {
-    super(message || (source + ' Fehler ' + status));
+    super(message || t('error.' + source) + ' ' + status);
     this.source = source;            // 'llm' | 'mcp'
     this.status = status;            // HTTP status or JSON-RPC code
     this.isRateLimit = status === 429 || status === -32099;
@@ -74,7 +74,7 @@ class MCPClient {
         body: JSON.stringify(payload),
       });
     } catch (e) {
-      throw new ApiError('mcp', 0, 'MCP-Server nicht erreichbar (' + (e.message || 'Netzwerk/CORS') + ')');
+      throw new ApiError('mcp', 0, t('error.mcpUnreachable') + ' (' + (e.message || t('error.network')) + ')');
     }
 
     const sid = res.headers.get('Mcp-Session-Id') || res.headers.get('mcp-session-id');
@@ -126,14 +126,27 @@ class MCPClient {
     if (!this.initialized) await this.initialize();
     return this._send('tools/call', { name, arguments: args || {} });
   }
+
+  async listResources() {
+    if (!this.initialized) await this.initialize();
+    const r = await this._send('resources/list', {});
+    return (r && r.resources) || [];
+  }
+
+  async readResource(uri) {
+    if (!this.initialized) await this.initialize();
+    const r = await this._send('resources/read', { uri });
+    if (!r || !r.contents) return '';
+    return r.contents.map((c) => c.text || '').join('\n').trim();
+  }
 }
 
 function mcpHttpMessage(status, body) {
-  if (status === 429) return 'MCP-Server: Rate-Limit erreicht (429)';
-  if (status === 404) return 'MCP-Endpoint nicht gefunden (404) — URL prüfen';
-  if (status === 401 || status === 403) return 'MCP-Server: nicht autorisiert (' + status + ')';
+  if (status === 429) return t('error.mcpRateLimit');
+  if (status === 404) return t('error.mcp404');
+  if (status === 401 || status === 403) return t('error.mcpAuth') + ' (' + status + ')';
   const snip = (body || '').slice(0, 140);
-  return 'MCP-Server HTTP ' + status + (snip ? ' — ' + snip : '');
+  return t('error.mcpHttp') + ' ' + status + (snip ? ' — ' + snip : '');
 }
 
 /* MCP tool descriptors -> OpenAI tool schema */
@@ -168,33 +181,27 @@ function readToolResult(result) {
    returns { content, reasoning, toolCalls:[{id,name,args}], finishReason }
    ============================================================ */
 async function streamChat(cfg, apiMessages, signal, cbs) {
-  const base = (cfg.baseUrl || '').trim().replace(/\/+$/, '');
-  const url = base + '/chat/completions';
-
   const body = { model: cfg.model, messages: apiMessages, stream: true };
   if (cfg.tools && cfg.tools.length) { body.tools = cfg.tools; body.tool_choice = 'auto'; }
   if (cfg.temperature != null && cfg.temperature !== '') body.temperature = +cfg.temperature;
   if (cfg.maxTokens) body.max_tokens = +cfg.maxTokens;
   if (cfg.topP != null && cfg.topP !== '') body.top_p = +cfg.topP;
   if (cfg.thinking && cfg.reasoningEffort && cfg.reasoningEffort !== 'off') {
-    body.reasoning_effort = cfg.reasoningEffort;            // OpenAI / Groq style
-    body.reasoning = { effort: cfg.reasoningEffort };       // OpenRouter style (ignored by others)
+    body.reasoning_effort = cfg.reasoningEffort;
+    body.reasoning = { effort: cfg.reasoningEffort };
   }
 
   let res;
   try {
-    res = await fetch(url, {
+    res = await fetch('api/chat', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(cfg.apiKey ? { Authorization: 'Bearer ' + cfg.apiKey } : {}),
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
       signal,
     });
   } catch (e) {
     if (e.name === 'AbortError') throw e;
-    throw new ApiError('llm', 0, 'LLM-Endpoint nicht erreichbar (' + (e.message || 'Netzwerk/CORS') + ')');
+      throw new ApiError('llm', 0, t('error.llmUnreachable') + ' (' + (e.message || t('error.network')) + ')');
   }
 
   if (!res.ok) {
@@ -255,11 +262,12 @@ async function streamChat(cfg, apiMessages, signal, cbs) {
 function llmHttpMessage(status, body) {
   let detail = '';
   try { const j = JSON.parse(body); detail = (j.error && (j.error.message || j.error)) || ''; } catch { detail = (body || '').slice(0, 160); }
-  if (status === 429) return 'LLM: Rate-Limit erreicht (429)' + (detail ? ' — ' + detail : ' — bitte kurz warten.');
-  if (status === 401 || status === 403) return 'LLM: API-Key ungültig oder fehlend (' + status + ')';
-  if (status === 404) return 'LLM: Modell oder Endpoint nicht gefunden (404)';
-  if (status >= 500) return 'LLM: Server-Fehler (' + status + ') — evtl. überlastet';
-  return 'LLM HTTP ' + status + (detail ? ' — ' + detail : '');
+  if (status === 429) return t('error.llmRateLimit') + (detail ? ' — ' + detail : t('error.llmRateLimitSuffix'));
+  if (status === 401 || status === 403) return t('error.llmAuth') + ' (' + status + ')' + (detail ? ' — ' + detail : '');
+  if (status === 402) return t('error.llmPayment') + (detail ? ' — ' + detail : '');
+  if (status === 404) return t('error.llm404');
+  if (status >= 500) return t('error.llmServer') + ' (' + status + ')';
+  return t('error.llmHttp') + ' ' + status + (detail ? ' — ' + detail : '');
 }
 
 Object.assign(window, {
