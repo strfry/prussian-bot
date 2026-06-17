@@ -15,9 +15,9 @@ const I18N = {
   'welcome.title': 'Prūsiskas Bots',
   'welcome.description': 'Chatbots, kas rekōnstruītun Prūsiskan bilāi — izmīnt Prūsiskas preidinsnan ir laukī wirdeīnan prei MCP-serveran, kāi si pa Prūsiskan etrātwei.',
   'welcome.notConfigured': 'Pirms endpoint ir MCP-serveran en Ensadīnsenis (wūnzai prei tikrai) sensētun.',
-  'welcome.q1': 'Kāigi "Stern" pa Prūsiskan?',
-  'welcome.q2': 'Talkūs: lāiku — kāi stan bilāi?',
-  'welcome.q3': 'Ebkaīlinsnan pa Prūsiskan teikātun.',
+  'welcome.q1': 'Translate: "I have to go to the market tomorrow."',
+  'welcome.q2': 'What does the Prussian word "wīdai" mean?',
+  'welcome.q3': 'Nenne mir 10 Wörter für Gefühle auf Prußisch.',
 
   /* user/bot labels */
   'user.label': 'tū',
@@ -26,8 +26,8 @@ const I18N = {
   /* composer */
   'composer.placeholder': 'Namestun — miksiskan, ēngliskan ar Prūsiskan …',
   'composer.placeholder.disabled': 'Pirms endpoint sensētun (Ensadīnsenis) …',
-  'composer.send': 'Tengīntun',
-  'composer.stop': 'Stalīntun',
+  'composer.send': 'Tenginnais',
+  'composer.stop': 'Stalinnais',
   'composer.hint': '<b>Enter</b> tengīntun · <b>Shift+Enter</b> naunā rīndā',
 
   /* reasoning */
@@ -45,7 +45,7 @@ const I18N = {
   'error.rateLimit': 'Rāt-arāiks',
   'error.mcp': 'MCP-blānda',
   'error.llm': 'LLM-blānda',
-  'error.retry': 'Etkūmps bāndātun',
+  'error.retry': 'Etkūmps perbāndais',
 
   /* engine error messages */
   'error.network': 'tīnklan',
@@ -72,8 +72,8 @@ const I18N = {
   'settings.model': 'Modelis',
   'settings.mcp': 'MCP-Sērweris',
   'settings.mcpUrl': 'Sērweris-URL (Streamable HTTP)',
-  'mcp.refresh': 'Pagapten ernaunīntun',
-  'mcp.connect': 'Sensētun',
+  'mcp.refresh': 'Pagapten ernauninnais',
+  'mcp.connect': 'Sensejjais',
   'mcp.connecting': 'sensejja …',
   'mcp.failed': 'niizpālts',
   'mcp.notConnected': 'ni sensēts',
