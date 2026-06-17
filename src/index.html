@@ -110,6 +110,8 @@ function App() {
       } catch (_) { /* resources not available */ }
       mcpRef.current = { client, tools, resources, grammarTexts, status: 'ok' };
       setMcp({ status: 'ok', tools, error: null, resources });
+      const uris = resources.map((r) => r.uri).filter(Boolean);
+      if (uris.length > 0) setCfg((c) => ({ ...c, selectedGrammars: (c.selectedGrammars || []).length > 0 ? c.selectedGrammars : uris }));
     } catch (e) {
       mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'error' };
       setMcp({ status: 'error', tools: [], error: e.message || 'Verbindung fehlgeschlagen', resources: [] });
