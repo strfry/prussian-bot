@@ -8,7 +8,7 @@ const I18N = {
   'conn.notConfigured': 'Endpoint ensadīntun',
   'conn.working': 'dēlā …',
   'conn.mcpError': 'MCP-blānda',
-  'conn.connecting': 'sensējas …',
+  'conn.connecting': 'sensejja …',
   'conn.notConnected': 'MCP ni sensēts',
 
   /* welcome */
@@ -28,7 +28,7 @@ const I18N = {
   'composer.placeholder.disabled': 'Pirms endpoint sensētun (Ensadīnsenis) …',
   'composer.send': 'Tengīntun',
   'composer.stop': 'Stalīntun',
-  'composer.hint': '<b>Enter</b> tengīntun · <b>Shift+Enter</b> naunan rīndā',
+  'composer.hint': '<b>Enter</b> tengīntun · <b>Shift+Enter</b> naunā rīndā',
 
   /* reasoning */
   'reasoning.head': 'Presnas',
@@ -74,8 +74,8 @@ const I18N = {
   'settings.mcpUrl': 'Sērweris-URL (Streamable HTTP)',
   'mcp.refresh': 'Pagapten ernaunīntun',
   'mcp.connect': 'Sensētun',
-  'mcp.connecting': 'sensējas …',
-  'mcp.failed': 'Sensēsna niizpāla',
+  'mcp.connecting': 'sensejja …',
+  'mcp.failed': 'niizpālts',
   'mcp.notConnected': 'ni sensēts',
   'settings.grammars': 'Grammatiki',
   'grammars.empty': 'Ni grammatikis resurssen prei sērweri preiēimins.',
