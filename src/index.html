@@ -181,7 +181,7 @@ function App() {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     try {
-      for (let step = 0; step < MAX_STEPS; step++) {
+      for (let step = 1; ; step++) {
         const apiMessages = buildApiMessages(turnsRef.current);
         pushTurn({ role: 'assistant', id: 'a' + Date.now() + '_' + step, reasoning: '', content: '', toolCalls: [], error: null });
 
