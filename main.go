@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"embed"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -12,6 +14,10 @@ import (
 
 //go:embed src
 var assets embed.FS
+
+var apiKey string
+
+const openCodeBaseURL = "https://opencode.ai/zen/v1"
 
 type logWriter struct {
 	http.ResponseWriter
@@ -36,7 +42,7 @@ func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept, X-MCP-URL")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -45,7 +51,79 @@ func cors(next http.Handler) http.Handler {
 	})
 }
 
+func handleChat(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if apiKey == "" {
+		http.Error(w, "API-Key nicht konfiguriert", http.StatusInternalServerError)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	r.Body.Close()
+
+	target := openCodeBaseURL + "/chat/completions"
+	req, err := http.NewRequestWithContext(r.Context(), "POST", target, bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultTransport.RoundTrip(req)
+	if err != nil {
+		http.Error(w, "upstream: "+err.Error(), http.StatusBadGateway)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		code := resp.StatusCode
+		if code == 401 && strings.Contains(string(bodyBytes), "Insufficient balance") {
+			code = 402
+		}
+		for k, v := range resp.Header {
+			w.Header()[k] = v
+		}
+		w.WriteHeader(code)
+		w.Write(bodyBytes)
+		return
+	}
+
+	for k, v := range resp.Header {
+		w.Header()[k] = v
+	}
+	w.WriteHeader(resp.StatusCode)
+
+	buf := make([]byte, 32*1024)
+	flusher, canFlush := w.(http.Flusher)
+	for {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			w.Write(buf[:n])
+			if canFlush {
+				flusher.Flush()
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
 func main() {
+	if apiKey == "" {
+		log.Fatal("API-Key nicht gesetzt – via .apikey beim Build setzen")
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -62,8 +140,10 @@ func main() {
 	mux := http.NewServeMux()
 
 	if prefix == "/" {
+		mux.HandleFunc("/api/chat", handleChat)
 		mux.Handle("/", fsrv)
 	} else {
+		mux.HandleFunc(prefix+"/api/chat", handleChat)
 		mux.Handle(prefix+"/", http.StripPrefix(prefix, fsrv))
 		mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, prefix+"/", http.StatusFound)

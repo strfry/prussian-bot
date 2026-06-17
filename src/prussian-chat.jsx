@@ -167,9 +167,7 @@ function Welcome({ onPick, configured }) {
       <p>{t('welcome.description')}</p>
       <div className="weave" />
       {!configured && <p style={{ color: 'var(--amber-deep)', fontStyle: 'italic' }}>
-        {window.__lang === 'de'
-          ? <>Zunächst Endpoint &amp; MCP-Server unter <b>{t('topbar.settings')}</b> (oben rechts) verbinden.</>
-          : <>First connect an endpoint &amp; MCP server in <b>{t('topbar.settings')}</b> (top right).</>}
+        {t('welcome.notConfigured')}
       </p>}
       <div className="suggests">
         {welcomeQs.map(function(item, i) {

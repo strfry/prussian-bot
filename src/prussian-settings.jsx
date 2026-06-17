@@ -43,7 +43,7 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
   const st = mcp.status;
   const statusCls = st === 'ok' ? 'ok' : st === 'connecting' ? 'busy' : st === 'error' ? 'err' : '';
   function statusTxt() {
-    if (st === 'ok') { var n = mcp.tools.length; var d = (window.__lang || 'de') === 'de'; return n + (d ? ' Werkzeug' : ' tool') + (n === 1 ? '' : (d ? 'e' : 's')) + (d ? ' verbunden' : ' connected'); }
+    if (st === 'ok') { var n = mcp.tools.length; return n + ' pagapt' + (n === 1 ? 's' : 'ai') + ' sindāts'; }
     if (st === 'connecting') return t('mcp.connecting');
     if (st === 'error') return mcp.error || t('mcp.failed');
     return t('mcp.notConnected');
@@ -131,7 +131,11 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
           <div className="sec">
             <h3>{t('settings.systemPrompt')} <span className="ln" /></h3>
             <div className="fld">
-              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[cfg.uiLang || 'de'] || PROMPTS['de']).system} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
+              <Segmented options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]}
+                value={cfg.promptLang || 'de'} onChange={(v) => { set('promptLang', v); set('systemPrompt', null); }} />
+            </div>
+            <div className="fld">
+              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[cfg.promptLang || 'de'] || PROMPTS['de']).system} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
               <div className="desc">{t('settings.systemPromptDesc')}</div>
             </div>
           </div>

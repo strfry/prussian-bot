@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" id="html-el">
+<html lang="prg" id="html-el">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -33,7 +33,7 @@ const DEFAULT_CFG = {
   model: 'deepseek-v4-flash-free',
   mcpUrl: 'https://strfry.org/prussian-mcp/mcp',
   selectedGrammars: [],
-  uiLang: 'de',
+  promptLang: 'de',
   thinking: true,
   reasoningEffort: 'medium',
   temperature: 0.4,
@@ -121,9 +121,8 @@ function App() {
 
   /* ---- build OpenAI messages from rendered turns ---- */
   function buildApiMessages(list) {
-    var lang = cfg.uiLang || 'de';
-    var defaultSys = (PROMPTS[lang] || PROMPTS['de']).system;
-    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : defaultSys;
+    var lang = cfg.promptLang || 'de';
+    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[lang] || PROMPTS['de']).system;
     const sel = cfg.selectedGrammars || [];
     if (sel.length > 0) {
       const extras = sel.map((uri) => mcpRef.current.grammarTexts[uri]).filter(Boolean);
@@ -248,26 +247,16 @@ function App() {
     setTurns([]);
   }
 
-  /* ---- i18n helpers ---- */
-  function pl(n, deOne, deMany, enOne, enMany) {
-    var d = window.__lang === 'de';
-    return d ? (n === 1 ? deOne : deMany) : (n === 1 ? enOne : enMany);
-  }
-  function setLang(l) { setCfg(function(c) { return { ...c, uiLang: l }; }); }
 
   /* ---- connection chip ---- */
   let connCls = 'warn', connTxt = t('conn.notConfigured');
   if (configured) {
     if (busy) { connCls = 'busy'; connTxt = t('conn.working'); }
-    else if (mcp.status === 'ok') { connCls = 'ok'; connTxt = pl(mcp.tools.length, '1 Werkzeug', mcp.tools.length+' Werkzeuge', '1 tool', mcp.tools.length+' tools'); }
+    else if (mcp.status === 'ok') { var nn = mcp.tools.length; connCls = 'ok'; connTxt = nn + ' pagapt' + (nn === 1 ? 's' : 'ai') + ' sindāts'; }
     else if (mcp.status === 'error') { connCls = 'err'; connTxt = t('conn.mcpError'); }
     else if (mcp.status === 'connecting') { connCls = 'busy'; connTxt = t('conn.connecting'); }
     else { connCls = 'warn'; connTxt = t('conn.notConnected'); }
   }
-
-  /* ---- sync lang attribute ---- */
-  useEffect(function() { document.documentElement.lang = cfg.uiLang || 'de'; }, [cfg.uiLang]);
-  window.__lang = cfg.uiLang || 'de';
 
   const lastIdx = turns.length - 1;
 
@@ -277,10 +266,6 @@ function App() {
         <div className="brand">
           <div className="title"><span className="prs">{t('welcome.title')}</span></div>
           <div className="sub">{t('topbar.subtitle')}</div>
-        </div>
-        <div className="lang-toggle">
-          <button className={window.__lang !== 'en' ? 'on' : ''} onClick={function() { setLang('de'); }} title="Deutsch">DE</button>
-          <button className={window.__lang === 'en' ? 'on' : ''} onClick={function() { setLang('en'); }} title="English">EN</button>
         </div>
         <div className="spacer" />
         <div className={'conn ' + connCls} onClick={() => setShowSettings(true)} title={t('topbar.settingsTitle')}>

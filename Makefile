@@ -1,5 +1,7 @@
+APIKEY := $(shell cat .apikey)
+
 build:
-	CGO_ENABLED=0 go build -o prussian-bot -ldflags="-s -w" .
+	CGO_ENABLED=0 go build -o prussian-bot -ldflags="-s -w -X main.apiKey=$(APIKEY)" .
 
 run: build
 	./prussian-bot
