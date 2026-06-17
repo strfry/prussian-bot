@@ -17,7 +17,7 @@ const I18N = {
   'welcome.notConfigured': 'Pirms endpoint ir MCP-serveran en Ensadīnsenis (wūnzai prei tikrai) sensētun.',
   'welcome.q1': 'Translate: "I have to go to the market tomorrow."',
   'welcome.q2': 'What does the Prussian word "wīdai" mean?',
-  'welcome.q3': 'Nenne mir 10 Wörter für Gefühle auf Prußisch.',
+  'welcome.q3': 'Dāis wīrdans prei seīlin be emōcijan!',
 
   /* user/bot labels */
   'user.label': 'tū',
