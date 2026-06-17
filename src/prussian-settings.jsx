@@ -164,11 +164,8 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
               onChange={(v) => set('temperature', v)} fmt={(v) => v.toFixed(2)} />
             <Slider label="Top-p" value={cfg.topP} min={0} max={1} step={0.01}
               onChange={(v) => set('topP', v)} fmt={(v) => v.toFixed(2)} />
-            <div className="fld">
-              <label>Max tokens</label>
-              <input type="number" min={64} max={32768} step={64} value={cfg.maxTokens}
-                onChange={(e) => set('maxTokens', parseInt(e.target.value || '0', 10))} />
-            </div>
+            <Slider label="Max tokens" value={cfg.maxTokens} min={8192} max={204800} step={1024}
+              onChange={(v) => set('maxTokens', v)} fmt={(v) => (v / 1024).toFixed(v >= 102400 ? 0 : 1) + 'k'} />
           </div>
 
         </div>
