@@ -132,10 +132,10 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
             <h3>{t('settings.systemPrompt')} <span className="ln" /></h3>
             <div className="fld">
               <Segmented options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]}
-                value={cfg.promptLang || 'de'} onChange={(v) => { set('promptLang', v); set('systemPrompt', null); }} />
+                value={cfg.promptLang || 'en'} onChange={(v) => { set('promptLang', v); set('systemPrompt', null); }} />
             </div>
             <div className="fld">
-              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[cfg.promptLang || 'de'] || PROMPTS['de']).system} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
+              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[cfg.promptLang || 'en'] || PROMPTS['en']).system} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
               <div className="desc">{t('settings.systemPromptDesc')}</div>
             </div>
           </div>

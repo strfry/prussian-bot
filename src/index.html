@@ -34,7 +34,7 @@ const DEFAULT_CFG = {
   model: 'deepseek-v4-flash-free',
   mcpUrl: 'https://strfry.org/prussian-mcp/mcp',
   selectedGrammars: [],
-  promptLang: 'de',
+  promptLang: 'en',
   thinking: true,
   reasoningEffort: 'medium',
   temperature: 0.4,
@@ -115,7 +115,7 @@ function App() {
       if (uris.length > 0) setCfg((c) => ({ ...c, selectedGrammars: (c.selectedGrammars || []).length > 0 ? c.selectedGrammars : uris }));
     } catch (e) {
       mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'error' };
-      setMcp({ status: 'error', tools: [], error: e.message || 'Verbindung fehlgeschlagen', resources: [] });
+      setMcp({ status: 'error', tools: [], error: e.message || 'Connection failed', resources: [] });
     }
   }, []);
 
@@ -124,8 +124,8 @@ function App() {
 
   /* ---- build OpenAI messages from rendered turns ---- */
   function buildApiMessages(list) {
-    var lang = cfg.promptLang || 'de';
-    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[lang] || PROMPTS['de']).system;
+    var lang = cfg.promptLang || 'en';
+    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[lang] || PROMPTS['en']).system;
     const sel = cfg.selectedGrammars || [];
     if (sel.length > 0) {
       const extras = sel.map((uri) => mcpRef.current.grammarTexts[uri]).filter(Boolean);
