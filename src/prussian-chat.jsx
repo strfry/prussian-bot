@@ -1,44 +1,31 @@
 // Prussian Bot — chat view: message list, reasoning block, tool cards, composer.
-const { useState, useRef, useEffect, useLayoutEffect } = React;
+const { useState, useRef, useEffect, useLayoutEffect, useMemo } = React;
 
-/* ---- tiny markdown -> React (bold/italic/code + paragraphs/lists) ---- */
 const MACRON = /[āēīōūĀĒĪŌŪ]/;
-function inlineMd(text, keyBase) {
-  // split on **bold**, *italic*/_italic_, `code`
-  const out = [];
-  const re = /(\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`)/g;
-  let last = 0, m, i = 0;
-  while ((m = re.exec(text))) {
-    if (m.index > last) out.push(...words(text.slice(last, m.index), keyBase + '-t' + (i++)));
-    const tok = m[0];
-    if (tok.startsWith('**')) out.push(<strong key={keyBase + '-b' + (i++)}>{tok.slice(2, -2)}</strong>);
-    else if (tok.startsWith('`')) out.push(<code key={keyBase + '-c' + (i++)}>{tok.slice(1, -1)}</code>);
-    else out.push(<em key={keyBase + '-i' + (i++)}>{tok.slice(1, -1)}</em>);
-    last = m.index + tok.length;
-  }
-  if (last < text.length) out.push(...words(text.slice(last), keyBase + '-t' + (i++)));
-  return out;
-}
-// highlight Prussian-looking words (macron vowels) in amber
-function words(text, keyBase) {
-  const parts = text.split(/(\s+)/);
-  return parts.map((w, j) =>
-    MACRON.test(w) && /\p{L}/u.test(w)
-      ? <span key={keyBase + '-' + j} className="prussian">{w}</span>
-      : w
-  );
-}
 function Markdown({ text }) {
+  const ref = useRef(null);
+  const html = useMemo(() => text ? marked.parse(text) : '', [text]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const iter = document.createNodeIterator(el, NodeFilter.SHOW_TEXT, null);
+    const pending = [];
+    let node;
+    while ((node = iter.nextNode())) {
+      if (node.textContent && MACRON.test(node.textContent)) {
+        pending.push(node);
+      }
+    }
+    for (const n of pending) {
+      const wrap = document.createElement('span');
+      wrap.innerHTML = n.textContent.replace(/(\S*[āēīōūĀĒĪŌŪ]\S*)/g, '<span class="prussian">$1</span>');
+      n.replaceWith(...wrap.childNodes);
+    }
+  }, [html]);
+
   if (!text) return null;
-  const blocks = text.replace(/\r/g, '').split(/\n{2,}/);
-  return blocks.map((blk, bi) => {
-    const lines = blk.split('\n');
-    const isUl = lines.every((l) => /^\s*[-*]\s+/.test(l));
-    const isOl = lines.every((l) => /^\s*\d+[.)]\s+/.test(l));
-    if (isUl && lines.length) return <ul key={bi}>{lines.map((l, li) => <li key={li}>{inlineMd(l.replace(/^\s*[-*]\s+/, ''), bi + '_' + li)}</li>)}</ul>;
-    if (isOl && lines.length) return <ol key={bi}>{lines.map((l, li) => <li key={li}>{inlineMd(l.replace(/^\s*\d+[.)]\s+/, ''), bi + '_' + li)}</li>)}</ol>;
-    return <p key={bi}>{lines.map((l, li) => [li > 0 && <br key={'br' + li} />, ...inlineMd(l, bi + '_' + li)])}</p>;
-  });
+  return <div ref={ref} className="answer" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 /* ---- reasoning block (always visible, collapsible) ---- */
@@ -138,7 +125,7 @@ function Message({ turn, isLast, streaming, onRetry }) {
           </div>
         )}
         {turn.content ? (
-          <div className="bubble-bot answer">
+          <div className="bubble-bot">
             <Markdown text={turn.content} />
             {contentStreaming && <span className="caret" />}
           </div>
@@ -157,7 +144,7 @@ function Message({ turn, isLast, streaming, onRetry }) {
 /* ---- welcome / empty state ---- */
 function Welcome({ onPick, configured }) {
   var welcomeQs = [
-    { q: t('welcome.q1'), a: 'lāuksnā' },
+    { q: t('welcome.q1'), a: null },
     { q: t('welcome.q2'), a: null },
     { q: t('welcome.q3'), a: null },
   ];
