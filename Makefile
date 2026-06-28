@@ -1,7 +1,8 @@
 APIKEY := $(shell cat .apikey)
+VERSION := $(shell date +%Y%m%d%H%M%S)
 
 build:
-	CGO_ENABLED=0 go build -o prussian-bot -ldflags="-s -w -X main.apiKey=$(APIKEY)" .
+	CGO_ENABLED=0 go build -o prussian-bot -ldflags="-s -w -X main.apiKey=$(APIKEY) -X main.appVersion=$(VERSION)" .
 
 run: build
 	./prussian-bot

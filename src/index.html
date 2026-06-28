@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css">
-<link rel="stylesheet" href="prussian-app.css">
+<link rel="stylesheet" href="styles.css?v=__VERSION__">
+<link rel="stylesheet" href="prussian-app.css?v=__VERSION__">
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
@@ -17,17 +17,17 @@
 <body>
 <div id="root"></div>
 
-<script src="i18n.js"></script>
-<script src="prompts.js"></script>
-<script type="text/babel" data-presets="env,react" src="prussian-engine.jsx"></script>
-<script type="text/babel" data-presets="env,react" src="prussian-chat.jsx"></script>
-<script type="text/babel" data-presets="env,react" src="prussian-settings.jsx"></script>
+<script src="i18n.js?v=__VERSION__"></script>
+<script src="prompts.js?v=__VERSION__"></script>
+<script type="text/babel" data-presets="env,react" src="prussian-engine.jsx?v=__VERSION__"></script>
+<script type="text/babel" data-presets="env,react" src="prussian-chat.jsx?v=__VERSION__"></script>
+<script type="text/babel" data-presets="env,react" src="prussian-settings.jsx?v=__VERSION__"></script>
 
 <script type="text/babel" data-presets="env,react">
 const { useState, useEffect, useRef, useCallback } = React;
 
-const LS_CFG = 'prussianbot.cfg.v1';
-const LS_TURNS = 'prussianbot.turns.v1';
+const LS_CFG = 'prussianbot.cfg.v2';
+const LS_TURNS = 'prussianbot.turns.v2';
 const MAX_STEPS = 6;
 
 const DEFAULT_CFG = {

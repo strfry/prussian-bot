@@ -16,6 +16,7 @@ import (
 var assets embed.FS
 
 var apiKey string
+var appVersion string
 
 const openCodeBaseURL = "https://opencode.ai/zen/v1"
 
@@ -49,6 +50,33 @@ func cors(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func cacheControl(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".html") {
+			w.Header().Set("Cache-Control", "no-cache")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func serveIndex(w http.ResponseWriter, r *http.Request) {
+	data, err := assets.ReadFile("src/index.html")
+	if err != nil {
+		http.Error(w, "index not found", http.StatusInternalServerError)
+		return
+	}
+	v := appVersion
+	if v == "" {
+		v = "dev"
+	}
+	content := strings.ReplaceAll(string(data), "__VERSION__", v)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write([]byte(content))
 }
 
 func handleChat(w http.ResponseWriter, r *http.Request) {
@@ -141,10 +169,22 @@ func main() {
 
 	if prefix == "/" {
 		mux.HandleFunc("/api/chat", handleChat)
-		mux.Handle("/", fsrv)
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				serveIndex(w, r)
+				return
+			}
+			fsrv.ServeHTTP(w, r)
+		})
 	} else {
 		mux.HandleFunc(prefix+"/api/chat", handleChat)
-		mux.Handle(prefix+"/", http.StripPrefix(prefix, fsrv))
+		mux.HandleFunc(prefix+"/", func(w http.ResponseWriter, r *http.Request) {
+			if strings.TrimPrefix(r.URL.Path, prefix) == "/" || strings.TrimPrefix(r.URL.Path, prefix) == "" {
+				serveIndex(w, r)
+				return
+			}
+			http.StripPrefix(prefix, fsrv).ServeHTTP(w, r)
+		})
 		mux.HandleFunc(prefix, func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, prefix+"/", http.StatusFound)
 		})
@@ -158,5 +198,5 @@ func main() {
 	}
 
 	log.Printf("listening on :%s  prefix=%s", port, prefix)
-	log.Fatal(http.ListenAndServe(":"+port, cors(logging(mux))))
+	log.Fatal(http.ListenAndServe(":"+port, cors(logging(cacheControl(mux)))))
 }
