@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Prūsiskas Bots</title>
+<title>Prūsisks Bōts</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cardo:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -255,7 +255,7 @@ function App() {
   let connCls = 'warn', connTxt = t('conn.notConfigured');
   if (configured) {
     if (busy) { connCls = 'busy'; connTxt = t('conn.working'); }
-    else if (mcp.status === 'ok') { var nn = mcp.tools.length; connCls = 'ok'; connTxt = nn + ' pagapt' + (nn === 1 ? 's' : 'ai') + ' sindāts'; }
+    else if (mcp.status === 'ok') { var nn = mcp.tools.length; connCls = 'ok'; connTxt = nn + ' ' + t(nn === 1 ? 'conn.toolConnected' : 'conn.toolsConnected'); }
     else if (mcp.status === 'error') { connCls = 'err'; connTxt = t('conn.mcpError'); }
     else if (mcp.status === 'connecting') { connCls = 'busy'; connTxt = t('conn.connecting'); }
     else { connCls = 'warn'; connTxt = t('conn.notConnected'); }

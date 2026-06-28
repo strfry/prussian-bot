@@ -116,7 +116,7 @@ function Message({ turn, isLast, streaming, onRetry }) {
   const contentStreaming = streaming && isLast && !!turn.content;
   return (
     <div className="msg bot">
-      <div className="who">Prūsiskas Bots</div>
+      <div className="who">{t('bot.label')}</div>
       <div className="bot-stack">
         {turn.reasoning ? <Reasoning text={turn.reasoning} streaming={reasoningStreaming} /> : null}
         {calls.length > 0 && (

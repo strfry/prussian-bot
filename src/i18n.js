@@ -10,9 +10,11 @@ const I18N = {
   'conn.mcpError': 'MCP error',
   'conn.connecting': 'connecting …',
   'conn.notConnected': 'MCP not connected',
+  'conn.toolConnected': 'tool connected',
+  'conn.toolsConnected': 'tools connected',
 
   /* welcome */
-  'welcome.title': 'Prussian Bot',
+  'welcome.title': 'Prūsisks Bōts',
   'welcome.description': 'A chatbot that reconstructs the Old Prussian language (Prūsiskan) — it uses Prussian grammar and looks words up in the dictionary on the MCP server to reply in Prussian.',
   'welcome.notConfigured': 'First configure an MCP server endpoint in Settings (top right).',
   'welcome.q1': 'Translate: "I have to go to the market tomorrow."',
@@ -21,7 +23,7 @@ const I18N = {
 
   /* user/bot labels */
   'user.label': 'you',
-  'bot.label': 'Prussian Bot',
+  'bot.label': 'Prūsisks Bōts',
 
   /* composer */
   'composer.placeholder': 'Type a message — German, English, or Prussian …',

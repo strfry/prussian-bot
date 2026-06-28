@@ -43,7 +43,7 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
   const st = mcp.status;
   const statusCls = st === 'ok' ? 'ok' : st === 'connecting' ? 'busy' : st === 'error' ? 'err' : '';
   function statusTxt() {
-    if (st === 'ok') { var n = mcp.tools.length; return n + ' pagapt' + (n === 1 ? 's' : 'ai') + ' sindāts'; }
+    if (st === 'ok') { var n = mcp.tools.length; return n + ' ' + t(n === 1 ? 'conn.toolConnected' : 'conn.toolsConnected'); }
     if (st === 'connecting') return t('mcp.connecting');
     if (st === 'error') return mcp.error || t('mcp.failed');
     return t('mcp.notConnected');
