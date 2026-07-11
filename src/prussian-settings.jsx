@@ -131,7 +131,7 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
           <div className="sec">
             <h3>{t('settings.systemPrompt')} <span className="ln" /></h3>
             <div className="fld">
-              <Segmented options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }]}
+              <Segmented options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }, { value: 'lt', label: 'LT' }]}
                 value={cfg.promptLang || 'en'} onChange={(v) => { set('promptLang', v); set('systemPrompt', null); }} />
             </div>
             <div className="fld">
