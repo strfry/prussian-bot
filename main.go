@@ -55,7 +55,9 @@ func cors(next http.Handler) http.Handler {
 func cacheControl(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".html") {
-			w.Header().Set("Cache-Control", "no-cache")
+			// Das Dokument (inkl. Inline-Script) darf NIE aus dem Cache kommen:
+			// nur so erreichen normale Reloads immer die aktuelle Version.
+			w.Header().Set("Cache-Control", "no-store")
 		} else {
 			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 		}
@@ -74,8 +76,14 @@ func serveIndex(w http.ResponseWriter, r *http.Request) {
 		v = "dev"
 	}
 	content := strings.ReplaceAll(string(data), "__VERSION__", v)
+	etag := `"` + v + `"`
+	w.Header().Set("ETag", etag)
+	if r.Header.Get("If-None-Match") == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Cache-Control", "no-store")
 	w.Write([]byte(content))
 }
 

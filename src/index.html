@@ -32,7 +32,7 @@ const MAX_STEPS = 6;
 
 const DEFAULT_CFG = {
   model: 'deepseek-v4-flash-free',
-  mcpUrl: 'https://strfry.org/prussian-mcp/mcp',
+  mcpUrl: 'https://prussian.uber.space/mcp',
   selectedGrammars: [],
   promptLang: 'en',
   thinking: true,
@@ -42,9 +42,22 @@ const DEFAULT_CFG = {
   maxTokens: 32768,
 };
 
+// Veraltete MCP-Hosts, deren URLs nicht mehr funktionieren (dürfen nicht aus dem
+// localStorage übernommen werden, sonst bleibt der Bot an einer toten URL hängen).
+const OBSOLETE_MCP_HOSTS = ['strfry.org'];
+
 function loadCfg() {
   try {
     var saved = JSON.parse(localStorage.getItem(LS_CFG) || '{}');
+    if (saved.mcpUrl) {
+      var ok = true;
+      try {
+        var parsed = new URL(saved.mcpUrl);
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') ok = false;
+        if (OBSOLETE_MCP_HOSTS.some((h) => parsed.hostname === h || parsed.hostname.endsWith('.' + h))) ok = false;
+      } catch { ok = false; }
+      if (!ok) delete saved.mcpUrl;   // auf Default zurückfallen
+    }
     return { ...DEFAULT_CFG, ...saved };
   } catch { return { ...DEFAULT_CFG }; }
 }
@@ -138,6 +151,7 @@ function App() {
       const hasTools = t.toolCalls && t.toolCalls.length;
       const m = { role: 'assistant', content: t.content || (hasTools ? null : '') };
       if (hasTools) m.tool_calls = t.toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args || '{}' } }));
+      if (t.reasoning) m.reasoning_content = t.reasoning;  // DeepSeek thinking mode: reasoning_content muss beim Replay mitgeschickt werden
       if (!m.content && !hasTools) continue;               // skip empty/errored turns
       msgs.push(m);
       if (hasTools) {
