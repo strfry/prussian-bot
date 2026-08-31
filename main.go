@@ -18,7 +18,7 @@ var assets embed.FS
 var apiKey string
 var appVersion string
 
-const openCodeBaseURL = "https://opencode.ai/zen/v1"
+const openCodeBaseURL = "https://opencode.ai/zen/go/v1"
 
 type logWriter struct {
 	http.ResponseWriter
