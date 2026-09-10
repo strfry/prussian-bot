@@ -43,7 +43,7 @@ func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept, X-MCP-URL")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, MCP-Protocol-Version, Mcp-Session-Id, Accept, X-MCP-URL, x-opencode-session")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -112,6 +112,13 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
+	// OpenCode routes requests by session for caching; forward the client's id
+	// or synthesise a stable-enough one so requests are never rejected.
+	sid := r.Header.Get("x-opencode-session")
+	if sid == "" {
+		sid = "prussian-bot"
+	}
+	req.Header.Set("x-opencode-session", sid)
 
 	resp, err := http.DefaultTransport.RoundTrip(req)
 	if err != nil {

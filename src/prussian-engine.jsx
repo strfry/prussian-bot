@@ -28,6 +28,22 @@ async function safeText(res) {
   try { return await res.text(); } catch { return ''; }
 }
 
+/* Stable per-tab session id — OpenCode requires x-opencode-session to route
+   requests efficiently (caching). Persisted for the lifetime of the tab. */
+function opencodeSessionId() {
+  try {
+    let id = sessionStorage.getItem('opencode-session');
+    if (!id) {
+      id = (crypto.randomUUID ? crypto.randomUUID()
+        : 'sess-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+      sessionStorage.setItem('opencode-session', id);
+    }
+    return id;
+  } catch {
+    return 'sess-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+  }
+}
+
 /* A typed error so the UI can recognise rate limits etc. */
 class ApiError extends Error {
   constructor(source, status, message) {
@@ -195,7 +211,10 @@ async function streamChat(cfg, apiMessages, signal, cbs) {
   try {
     res = await fetch('api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-opencode-session': opencodeSessionId(),
+      },
       body: JSON.stringify(body),
       signal,
     });
