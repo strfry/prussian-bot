@@ -31,7 +31,7 @@ const LS_TURNS = 'prussianbot.turns.v2';
 const MAX_STEPS = 6;
 
 const DEFAULT_CFG = {
-  model: 'deepseek-v4-flash',
+  model: 'beam-free',
   mcpUrl: 'https://prussian.uber.space/mcp',
   selectedGrammars: [],
   promptLang: 'en',
@@ -45,7 +45,7 @@ const DEFAULT_CFG = {
 // Veraltete MCP-Hosts, deren URLs nicht mehr funktionieren (dürfen nicht aus dem
 // localStorage übernommen werden, sonst bleibt der Bot an einer toten URL hängen).
 const OBSOLETE_MCP_HOSTS = ['strfry.org'];
-const OBSOLETE_MODELS = ['deepseek-v4-flash-free', 'x-preview-f-free', 'longcat-2.0'];
+const OBSOLETE_MODELS = ['deepseek-v4-flash-free', 'x-preview-f-free', 'longcat-2.0', 'deepseek-v4-flash'];
 
 function loadCfg() {
   try {

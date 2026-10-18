@@ -90,6 +90,7 @@ const I18N = {
   'effort.medium': 'medium',
   'effort.high': 'high',
   'settings.reasoningEffortDesc': 'If your endpoint supports <code>reasoning_effort</code>.',
+  'settings.reasoningUnsupported': 'This model rejects reasoning parameters (400), so none are sent.',
   'settings.sampling': 'Sampling parameters',
 };
 

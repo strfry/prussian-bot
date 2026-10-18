@@ -29,11 +29,14 @@ function Segmented({ options, value, onChange, disabled }) {
 }
 
 const MODEL_SUGGESTIONS = [
-  'meta-llama/llama-3.3-70b-instruct:free',
-  'deepseek/deepseek-r1:free',
-  'qwen/qwen-2.5-72b-instruct:free',
-  'google/gemini-2.0-flash-exp:free',
-  'mistralai/mistral-small-3.2-24b-instruct:free',
+  'beam-free',
+  'longcat-2.5-preview-free',
+  'deepseek-v4.1-flash',
+  'glm-5.3-flash',
+  'qwen3.7-plus',
+  'mimo-v2.6-flash',
+  'minimax-m3',
+  'claude-haiku-5-5',
 ];
 
 function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
@@ -143,17 +146,23 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
           {/* ---- Reasoning ---- */}
           <div className="sec">
             <h3>{t('settings.reasoning')} <span className="ln" /></h3>
-            <div className="fld toggle-fld">
-              <label>{t('settings.thinking')}</label>
-              <Toggle on={cfg.thinking} onChange={(v) => set('thinking', v)} />
-            </div>
-            {cfg.thinking && (
-              <div className="fld">
-                <label>{t('settings.reasoningEffort')}</label>
-                <Segmented value={cfg.reasoningEffort} onChange={(v) => set('reasoningEffort', v)}
-                  options={[{ value: 'low', label: t('effort.low') }, { value: 'medium', label: t('effort.medium') }, { value: 'high', label: t('effort.high') }]} />
-                <div className="desc" dangerouslySetInnerHTML={{__html: t('settings.reasoningEffortDesc')}} />
-              </div>
+            {!modelSupportsReasoning(cfg.model) ? (
+              <div className="desc">{t('settings.reasoningUnsupported')}</div>
+            ) : (
+              <>
+                <div className="fld toggle-fld">
+                  <label>{t('settings.thinking')}</label>
+                  <Toggle on={cfg.thinking} onChange={(v) => set('thinking', v)} />
+                </div>
+                {cfg.thinking && (
+                  <div className="fld">
+                    <label>{t('settings.reasoningEffort')}</label>
+                    <Segmented value={cfg.reasoningEffort} onChange={(v) => set('reasoningEffort', v)}
+                      options={[{ value: 'low', label: t('effort.low') }, { value: 'medium', label: t('effort.medium') }, { value: 'high', label: t('effort.high') }]} />
+                    <div className="desc" dangerouslySetInnerHTML={{__html: t('settings.reasoningEffortDesc')}} />
+                  </div>
+                )}
+              </>
             )}
           </div>
 

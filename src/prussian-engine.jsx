@@ -191,6 +191,13 @@ function readToolResult(result) {
   return { text, isError: !!result.isError };
 }
 
+/* Modelle, die Reasoning-Parameter ablehnen (400 "unsupported_parameter").
+   Solche Modelle laufen sonst gar nicht — der Request wird vorher verworfen. */
+const NO_REASONING_MODELS = ['beam-free'];
+function modelSupportsReasoning(model) {
+  return !NO_REASONING_MODELS.includes(model);
+}
+
 /* ============================================================
    LLM — OpenAI-compatible streaming chat completions
    cbs: { onReasoning(full), onContent(full), onToolCalls(arr) }
@@ -202,7 +209,7 @@ async function streamChat(cfg, apiMessages, signal, cbs) {
   if (cfg.temperature != null && cfg.temperature !== '') body.temperature = +cfg.temperature;
   if (cfg.maxTokens) body.max_tokens = +cfg.maxTokens;
   if (cfg.topP != null && cfg.topP !== '') body.top_p = +cfg.topP;
-  if (cfg.thinking && cfg.reasoningEffort && cfg.reasoningEffort !== 'off') {
+  if (cfg.thinking && cfg.reasoningEffort && cfg.reasoningEffort !== 'off' && modelSupportsReasoning(cfg.model)) {
     body.reasoning_effort = cfg.reasoningEffort;
     body.reasoning = { effort: cfg.reasoningEffort };
   }
@@ -290,5 +297,5 @@ function llmHttpMessage(status, body) {
 }
 
 Object.assign(window, {
-  MCPClient, streamChat, mcpToOpenAITools, readToolResult, ApiError,
+  MCPClient, streamChat, mcpToOpenAITools, readToolResult, ApiError, modelSupportsReasoning,
 });
