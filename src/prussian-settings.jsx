@@ -134,11 +134,8 @@ function SettingsDrawer({ cfg, setCfg, onClose, mcp, resources }) {
           <div className="sec">
             <h3>{t('settings.systemPrompt')} <span className="ln" /></h3>
             <div className="fld">
-              <Segmented options={[{ value: 'de', label: 'DE' }, { value: 'en', label: 'EN' }, { value: 'lt', label: 'LT' }]}
-                value={cfg.promptLang || 'en'} onChange={(v) => { set('promptLang', v); set('systemPrompt', null); }} />
-            </div>
-            <div className="fld">
-              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[cfg.promptLang || 'en'] || PROMPTS['en']).system} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
+              <textarea value={cfg.systemPrompt != null ? cfg.systemPrompt : ((mcp && mcp.systemPrompt) || FALLBACK_SYSTEM_PROMPT)} onChange={(e) => set('systemPrompt', e.target.value)} rows={5} />
+              {cfg.systemPrompt != null && <button type="button" className="iconbtn" onClick={() => set('systemPrompt', null)}>{t('settings.systemPromptReset')}</button>}
               <div className="desc">{t('settings.systemPromptDesc')}</div>
             </div>
           </div>

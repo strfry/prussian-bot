@@ -18,7 +18,6 @@
 <div id="root"></div>
 
 <script src="i18n.js?v=__VERSION__"></script>
-<script src="prompts.js?v=__VERSION__"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-engine.jsx?v=__VERSION__"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-chat.jsx?v=__VERSION__"></script>
 <script type="text/babel" data-presets="env,react" src="prussian-settings.jsx?v=__VERSION__"></script>
@@ -34,7 +33,6 @@ const DEFAULT_CFG = {
   model: 'beam-free',
   mcpUrl: 'https://prussian.uber.space/mcp',
   selectedGrammars: [],
-  promptLang: 'en',
   thinking: true,
   reasoningEffort: 'medium',
   temperature: 0.4,
@@ -61,6 +59,10 @@ function loadCfg() {
     }
     // model validation: reset model config for previously advertised model settings
     if (saved.model && OBSOLETE_MODELS.includes(saved.model)) delete saved.model;
+    // Der Systemprompt kommt jetzt vom MCP-Server; gespeicherte Overrides aus
+    // den alten DE/EN/LT-Prompts (get_word_forms filter=…) verwerfen.
+    delete saved.promptLang;
+    if (saved.systemPrompt && saved.systemPrompt.includes('filter=')) delete saved.systemPrompt;
     return { ...DEFAULT_CFG, ...saved };
   } catch { return { ...DEFAULT_CFG }; }
 }
@@ -112,12 +114,14 @@ function App() {
   /* ---- MCP connect ---- */
   const connectMcp = useCallback(async (url) => {
     const u = (url || '').trim();
-    if (!u) { mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'idle' }; setMcp({ status: 'idle', tools: [], error: null, resources: [] }); return; }
+    if (!u) { mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, systemPrompt: null, status: 'idle' }; setMcp({ status: 'idle', tools: [], error: null, resources: [], systemPrompt: null }); return; }
     setMcp({ status: 'connecting', tools: mcpRef.current.tools, error: null });
     try {
       const client = new MCPClient(u);
       await client.initialize();
       const tools = await client.listTools();
+      let systemPrompt = null;
+      try { systemPrompt = await client.getPrompt('system'); } catch (_) { /* server without prompts */ }
       let resources = [], grammarTexts = {};
       try {
         resources = await client.listResources();
@@ -125,13 +129,13 @@ function App() {
           try { grammarTexts[r.uri] = await client.readResource(r.uri); } catch (_) {}
         }
       } catch (_) { /* resources not available */ }
-      mcpRef.current = { client, tools, resources, grammarTexts, status: 'ok' };
-      setMcp({ status: 'ok', tools, error: null, resources });
+      mcpRef.current = { client, tools, resources, grammarTexts, systemPrompt, status: 'ok' };
+      setMcp({ status: 'ok', tools, error: null, resources, systemPrompt });
       const uris = resources.map((r) => r.uri).filter(Boolean);
       if (uris.length > 0) setCfg((c) => ({ ...c, selectedGrammars: (c.selectedGrammars || []).length > 0 ? c.selectedGrammars : uris }));
     } catch (e) {
-      mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, status: 'error' };
-      setMcp({ status: 'error', tools: [], error: e.message || 'Connection failed', resources: [] });
+      mcpRef.current = { client: null, tools: [], resources: [], grammarTexts: {}, systemPrompt: null, status: 'error' };
+      setMcp({ status: 'error', tools: [], error: e.message || 'Connection failed', resources: [], systemPrompt: null });
     }
   }, []);
 
@@ -140,8 +144,7 @@ function App() {
 
   /* ---- build OpenAI messages from rendered turns ---- */
   function buildApiMessages(list) {
-    var lang = cfg.promptLang || 'en';
-    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : (PROMPTS[lang] || PROMPTS['en']).system;
+    let sys = cfg.systemPrompt != null ? cfg.systemPrompt : (mcpRef.current.systemPrompt || FALLBACK_SYSTEM_PROMPT);
     const sel = cfg.selectedGrammars || [];
     if (sel.length > 0) {
       const extras = sel.map((uri) => mcpRef.current.grammarTexts[uri]).filter(Boolean);
@@ -312,7 +315,7 @@ function App() {
       {showSettings && (
         <SettingsDrawer
           cfg={cfg} setCfg={setCfg} onClose={() => setShowSettings(false)}
-          mcp={{ status: mcp.status, tools: mcp.tools, error: mcp.error, connect: connectMcp }}
+          mcp={{ status: mcp.status, tools: mcp.tools, error: mcp.error, systemPrompt: mcp.systemPrompt, connect: connectMcp }}
           resources={mcp.status === 'ok' ? (mcp.resources || []) : []}
         />
       )}

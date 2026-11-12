@@ -3,7 +3,7 @@
   "mcp": {
     "prussian-mcp": {
       "type": "remote",
-      "url": "https://strfry.org/prussian-mcp/mcp",
+      "url": "https://prussian.uber.space/mcp",
       "enabled": true,
       "timeout": 10000
     }

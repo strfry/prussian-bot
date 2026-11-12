@@ -149,6 +149,13 @@ class MCPClient {
     return (r && r.resources) || [];
   }
 
+  async getPrompt(name) {
+    if (!this.initialized) await this.initialize();
+    const r = await this._send('prompts/get', { name });
+    if (!r || !r.messages) return null;
+    return r.messages.map((m) => (m.content && m.content.text) || '').join('\n').trim() || null;
+  }
+
   async readResource(uri) {
     if (!this.initialized) await this.initialize();
     const r = await this._send('resources/read', { uri });
@@ -285,6 +292,10 @@ async function streamChat(cfg, apiMessages, signal, cbs) {
   return { content, reasoning, toolCalls, finishReason };
 }
 
+// Fallback, falls der MCP-Server keinen `system`-Prompt liefert (der kommt
+// sonst aus mcp/prompts/ — dieselbe Oberfläche wie im Eval).
+const FALLBACK_SYSTEM_PROMPT = 'Translate into reconstructed Prussian (Prūsiskan) using the tools.';
+
 function llmHttpMessage(status, body) {
   let detail = '';
   try { const j = JSON.parse(body); detail = (j.error && (j.error.message || j.error)) || ''; } catch { detail = (body || '').slice(0, 160); }
@@ -297,5 +308,5 @@ function llmHttpMessage(status, body) {
 }
 
 Object.assign(window, {
-  MCPClient, streamChat, mcpToOpenAITools, readToolResult, ApiError, modelSupportsReasoning,
+  MCPClient, streamChat, FALLBACK_SYSTEM_PROMPT, mcpToOpenAITools, readToolResult, ApiError, modelSupportsReasoning,
 });
